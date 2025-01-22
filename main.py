@@ -1,15 +1,14 @@
 import hashlib
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, Optional
 
 import firebase_admin
 import streamlit as st
-from database import WeightDatabase
 from firebase_admin import credentials, db
-from models import WeightRecord
 
 from components import DateRangeSelector, WeightInputForm, WeightRecordEditor
+from database import WeightDatabase
 
 # Firebaseの初期化
 if not firebase_admin._apps:
@@ -206,7 +205,7 @@ def main():
 
     # 記録の編集機能
     editor = WeightRecordEditor(db, records)
-    editor.rendor()
+    editor.render()
 
     if st.button("ログアウト"):
         st.session_state["logged_in"] = False
