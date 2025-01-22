@@ -7,6 +7,9 @@ import firebase_admin
 import streamlit as st
 from firebase_admin import credentials, db
 
+from components import DateRangeSelector, WeightInputForm, WeightRecordEditor
+from database import WeightDatabase
+
 # Firebaseの初期化
 if not firebase_admin._apps:
     cred = credentials.Certificate(".streamlit/secrets.json")
@@ -176,6 +179,9 @@ def init_session_state():
 
 
 def main():
+    """
+    メインアプリケーション
+    """
     init_session_state()
 
     if not st.session_state["logged_in"]:
@@ -184,6 +190,22 @@ def main():
 
     st.title("体重管理アプリ")
     st.write(f"ログインユーザー: {st.session_state['user_type']}")
+
+    # データベースインスタンスの作成
+    db = WeightDatabase(st.session_state["user_type"])
+
+    # サイドバーに入力フォームを配置
+    with st.sidebar:
+        weight_form = WeightInputForm(db)
+        weight_form.render()
+
+    # メイン画面に期間選択と記録表示
+    start_date, end_date = DateRangeSelector.render()
+    records = db.get_records(start_date, end_date)
+
+    # 記録の編集機能
+    editor = WeightRecordEditor(db, records)
+    editor.render()
 
     if st.button("ログアウト"):
         st.session_state["logged_in"] = False
