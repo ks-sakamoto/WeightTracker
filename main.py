@@ -9,6 +9,7 @@ from firebase_admin import credentials, db
 
 from components import DateRangeSelector, WeightInputForm, WeightRecordEditor
 from database import WeightDatabase
+from visualization import WeightVisualizer
 
 # Firebaseの初期化
 if not firebase_admin._apps:
@@ -199,12 +200,25 @@ def main():
         weight_form = WeightInputForm(db)
         weight_form.render()
 
+        # 予測表示の切り替え
+        show_prediction = st.checkbox("予測表示", value=False)
+
     # メイン画面に期間選択と記録表示
     start_date, end_date = DateRangeSelector.render()
-    records = db.get_records(start_date, end_date)
 
-    # 記録の編集機能
-    editor = WeightRecordEditor(db, records)
+    # 両ユーザーのデータを取得
+    db1 = WeightDatabase(st.secrets["app"]["user_type"][0])
+    db2 = WeightDatabase(st.secrets["app"]["user_type"][1])
+    records1 = db1.get_records(start_date, end_date)
+    records2 = db2.get_records(start_date, end_date)
+
+    # グラフの表示
+    visualizer = WeightVisualizer(records1, records2, show_prediction)
+    visualizer.render()
+
+    # 現在のユーザーの記録のみ編集可能
+    current_records = db.get_records(start_date, end_date)
+    editor = WeightRecordEditor(db, current_records)
     editor.render()
 
     if st.button("ログアウト"):
