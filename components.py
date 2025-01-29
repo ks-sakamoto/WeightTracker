@@ -28,8 +28,8 @@ class WeightInputForm:
             st.subheader("体重を記録")
 
             # 日付入力
-            input_date = st.date_input("日付", value=datetime.now().date())
-            use_current_time = st.checkbox("現在時刻を使用", value=True)
+            today = datetime.now().date()
+            input_date = st.date_input("日付", value=today)
 
             # 体重入力
             weight = st.number_input(
@@ -55,7 +55,7 @@ class WeightInputForm:
             if submit and weight > 0:
                 timestamp = (
                     datetime.now()
-                    if use_current_time
+                    if input_date == today
                     else datetime.combine(input_date, datetime.min.time())
                 )
                 if self.db.add_record(weight, time_after_meal, timestamp):
