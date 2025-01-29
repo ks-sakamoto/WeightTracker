@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple
 
 import streamlit as st
+
 from database import WeightDatabase
 from models import WeightRecord
 
@@ -26,6 +27,10 @@ class WeightInputForm:
         with st.form("weight_input_form"):
             st.subheader("体重を記録")
 
+            # 日付入力
+            input_date = st.date_input("日付", value=datetime.now().date())
+            use_current_time = st.checkbox("現在時刻を使用", value=True)
+
             # 体重入力
             weight = st.number_input(
                 "体重 (kg)",
@@ -48,7 +53,12 @@ class WeightInputForm:
             submit = st.form_submit_button("記録")
 
             if submit and weight > 0:
-                if self.db.add_record(weight, time_after_meal):
+                timestamp = (
+                    datetime.now()
+                    if use_current_time
+                    else datetime.combine(input_date, datetime.min.time())
+                )
+                if self.db.add_record(weight, time_after_meal, timestamp):
                     st.success("記録を保存しました")
                     st.rerun()
 
@@ -123,6 +133,10 @@ class WeightRecordEditor:
 
                 # 編集フォーム
                 with st.form(f"edit_form_{i}"):
+                    new_date = st.date_input(
+                        "日付", value=record.timestamp.date()
+                    )
+
                     new_weight = st.number_input(
                         "体重 (kg)",
                         value=record.weight,
@@ -149,8 +163,11 @@ class WeightRecordEditor:
 
                     with col1:
                         if st.form_submit_button("更新"):
+                            timestamp = datetime.combine(
+                                new_date, datetime.min.time()
+                            )
                             if self.db.update_record(
-                                record.id, new_weight, new_time
+                                record.id, new_weight, new_time, timestamp
                             ):
                                 st.success("記録を更新しました")
                                 st.rerun()

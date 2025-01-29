@@ -27,7 +27,9 @@ class WeightDatabase:
         self.user_type = user_type
         self.ref = db.reference(f"weights/{user_type}")
 
-    def add_record(self, weight: float, time_after_meal: float) -> bool:
+    def add_record(
+        self, weight: float, time_after_meal: float, timestamp: datetime
+    ) -> bool:
         """
         新しい体重記録を追加
 
@@ -37,6 +39,8 @@ class WeightDatabase:
             記録する体重値
         time_after_meal : float
             食後経過時間 (時間単位)
+        timestamp : datetime
+            記録する日付
 
         Returns
         -------
@@ -46,7 +50,7 @@ class WeightDatabase:
         try:
             record = WeightRecord(
                 weight=weight,
-                timestamp=datetime.now(),
+                timestamp=timestamp,
                 time_after_meal=time_after_meal,
             )
             self.ref.push().set(record.to_dict())
@@ -88,7 +92,11 @@ class WeightDatabase:
             return []
 
     def update_record(
-        self, record_id: str, weight: float, time_after_meal: float
+        self,
+        record_id: str,
+        weight: float,
+        time_after_meal: float,
+        timestamp: datetime,
     ) -> bool:
         """
         体重記録を更新
@@ -101,6 +109,8 @@ class WeightDatabase:
             新しい体重値
         time_after_meal : float
             新しい食後経過時間
+        timestamp : datetime
+            新しい日付
 
         Returns
         -------
@@ -109,14 +119,14 @@ class WeightDatabase:
         """
         try:
             record_ref = self.ref.child(record_id)
-            current_data = record_ref.get()
-            if current_data:
-                current_data["weight"] = weight
-                current_data["time_after_meal"] = time_after_meal
-                current_data["edited"] = True
-                record_ref.set(current_data)
-                return True
-            return False
+            record = WeightRecord(
+                weight=weight,
+                timestamp=timestamp,
+                time_after_meal=time_after_meal,
+                edited=True,
+            )
+            record_ref.set(record.to_dict())
+            return True
         except Exception as e:
             st.error(f"データ更新エラー: {str(e)}")
             return False

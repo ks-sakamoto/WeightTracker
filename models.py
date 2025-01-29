@@ -59,7 +59,7 @@ class WeightRecord:
         """
         return {
             "weight": self.weight,
-            "timestamp": self.timestamp.isoformat(),
+            "timestamp": self.timestamp.replace(microsecond=0).isoformat(),
             "time_after_meal": self.time_after_meal,
             "edited": self.edited,
         }
