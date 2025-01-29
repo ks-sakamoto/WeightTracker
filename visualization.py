@@ -71,8 +71,9 @@ class WeightVisualizer:
 
             # 過去の体重変化率（可能な場合）
             if i > 0:
-                weight_change = record.weight - records[i - 1].weight
-                days_diff = (record.timestamp - record[i - 1].timestamp).days
+                prev_record = records[i - 1]  # 前回の記録を参照
+                weight_change = record.weight - prev_record.weight
+                days_diff = (record.timestamp - prev_record.timestamp).days
                 if days_diff > 0:
                     feature.append(weight_change / days_diff)
                 else:
@@ -158,7 +159,6 @@ class WeightVisualizer:
         if self.user1_records:
             dates1 = [r.timestamp for r in self.user1_records]
             weight1 = [r.weight for r in self.user1_records]
-            times1 = [r.time_after_meal for r in self.user1_records]
 
             fig.add_trace(
                 go.Scatter(
@@ -173,10 +173,16 @@ class WeightVisualizer:
             )
 
             # 予測の追加
-            if self.show_prediction:
+            if self.show_prediction and self.user1_records:
                 X1, y1 = self._prepare_data(self.user1_records)
                 future_dates1, predictions1 = self._predict_future(X1, y1)
+
                 if predictions1:
+                    # 最新の実データを予測データの最初に追加
+                    last_record = self.user1_records[-1]
+                    future_dates1.insert(0, last_record.timestamp)
+                    predictions1.insert(0, last_record.weight)
+
                     fig.add_trace(
                         go.Scatter(
                             x=future_dates1,
@@ -192,7 +198,6 @@ class WeightVisualizer:
         if self.user2_records:
             dates2 = [r.timestamp for r in self.user2_records]
             weights2 = [r.weight for r in self.user2_records]
-            times2 = [r.time_after_meal for r in self.user2_records]
 
             fig.add_trace(
                 go.Scatter(
@@ -206,10 +211,17 @@ class WeightVisualizer:
                 secondary_y=False,
             )
 
-            if self.show_prediction:
+            # 予測の追加
+            if self.show_prediction and self.user2_records:
                 X2, y2 = self._prepare_data(self.user2_records)
                 future_dates2, predictions2 = self._predict_future(X2, y2)
+
                 if predictions2:
+                    # 最新の実データを予測データの最初に追加
+                    last_record = self.user2_records[-1]
+                    future_dates2.insert(0, last_record.timestamp)
+                    predictions2.insert(0, last_record.weight)
+
                     fig.add_trace(
                         go.Scatter(
                             x=future_dates2,
