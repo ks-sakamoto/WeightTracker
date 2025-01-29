@@ -83,6 +83,7 @@ class WeightDatabase:
 
             for record_id, data in records.items():
                 record = WeightRecord.from_dict(data)
+                record.id = record_id  # レコードIDを設定
                 if start_date <= record.timestamp <= end_date:
                     result.append(record)
 

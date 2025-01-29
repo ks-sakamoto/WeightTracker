@@ -28,14 +28,17 @@ class WeightRecord:
         記録日時
     time_after_meal : float
         食後経過時間（時間単位）
-    edited : bool
-        編集済みフラグ
+    edited : bool, optional
+        編集済みフラグ, by default False
+    id : Optional[str], optional
+        レコードの一意識別子, by default None
     """
 
     weight: float
     timestamp: datetime
     time_after_meal: float
     edited: bool = False
+    id: Optional[str] = None
 
     # 食後経過時間の選択肢を定義
     TIME_AFTER_MEAL_OPTIONS = [
