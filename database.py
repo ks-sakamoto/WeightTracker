@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 import streamlit as st
 from firebase_admin import db
@@ -60,17 +60,19 @@ class WeightDatabase:
             return False
 
     def get_records(
-        self, start_date: datetime, end_date: datetime
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
     ) -> List[WeightRecord]:
         """
         指定期間の体重記録を取得
 
         Parameters
         ----------
-        start_date : datetime
-            取得開始日
-        end_date : datetime
-            取得終了日
+        start_date : Optional[datetime], optional
+            取得開始日, by default None
+        end_date : Optional[datetime], optional
+            取得終了日, by default None
 
         Returns
         -------
@@ -84,7 +86,12 @@ class WeightDatabase:
             for record_id, data in records.items():
                 record = WeightRecord.from_dict(data)
                 record.id = record_id  # レコードIDを設定
-                if start_date <= record.timestamp <= end_date:
+
+                # 期間指定がある場合のみフィルタリング
+                if start_date and end_date:
+                    if start_date <= record.timestamp <= end_date:
+                        result.append(record)
+                else:
                     result.append(record)
 
             return sorted(result, key=lambda x: x.timestamp)
