@@ -209,16 +209,28 @@ def main():
     # 両ユーザーのデータを取得
     db1 = WeightDatabase(st.secrets["app"]["user_type"][0])
     db2 = WeightDatabase(st.secrets["app"]["user_type"][1])
-    records1 = db1.get_records(start_date, end_date)
-    records2 = db2.get_records(start_date, end_date)
+    records1 = db1.get_records()  # 期間指定なしで全データを取得
+    records2 = db2.get_records()
 
     # グラフの表示
-    visualizer = WeightVisualizer(records1, records2, show_prediction)
+    visualizer = WeightVisualizer(
+        records1, records2, start_date, end_date, show_prediction
+    )
     visualizer.render()
 
     # 現在のユーザーの記録のみ編集可能
-    current_records = db.get_records(start_date, end_date)
-    editor = WeightRecordEditor(db, current_records)
+    current_db = WeightDatabase(st.session_state["user_type"])
+    current_records = [
+        r
+        for r in (
+            db1
+            if st.session_state["user_type"]
+            == st.secrets["app"]["user_type"][0]
+            else db2
+        ).get_records()
+        if start_date <= r.timestamp <= end_date
+    ]
+    editor = WeightRecordEditor(current_db, current_records)
     editor.render()
 
     if st.button("ログアウト"):
