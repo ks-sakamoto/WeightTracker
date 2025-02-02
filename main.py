@@ -19,22 +19,7 @@ if not firebase_admin._apps:
     )
 
 
-def get_device_id() -> str:
-    """
-    デバイスIDを取得する
-
-    Returns
-    -------
-    str
-        デバイスの一意識別子。存在しない場合は新規生成する。
-    """
-    if "device_id" not in st.session_state:
-        # セッションにデバイスIDがない場合、ローカルストレージから取得を試みる
-        st.session_state["device_id"] = str(uuid.uuid4())
-    return st.session_state["device_id"]
-
-
-def hash_pasword(password: str) -> str:
+def hash_password(password: str, salt: str = "") -> str:
     """
     パスワードをハッシュ化する
 
@@ -42,44 +27,44 @@ def hash_pasword(password: str) -> str:
     ----------
     password : str
         ハッシュ化するパスワード
+    salt : str, optional
+        ソルト文字列, by default ""
 
     Returns
     -------
     str
         ハッシュ化されたパスワード
     """
-    return hashlib.sha256(password.encode()).hexdigest()
+    return hashlib.sha256((password + salt).encode()).hexdigest()
 
 
-def verify_device(device_id: str) -> Optional[Dict[str, Any]]:
+def verify_user(user_id: str) -> Optional[Dict[str, Any]]:
     """
-    デバイスIDが登録済みか確認する
+    ユーザーIDが登録済みか確認する
 
     Parameters
     ----------
-    device_id : str
-        確認するデバイスID
+    user_id : str
+        確認するユーザーID
 
     Returns
     -------
     Optional[Dict[str, Any]]
         登録済みの場合はユーザー情報、未登録の場合はNone
     """
-    ref = db.reference("devices")
+    ref = db.reference("users")
     devices = ref.get() or {}
-    return devices.get(device_id)
+    return devices.get(user_id)
 
 
-def register_device(device_id: str, user_type: str, password: str) -> bool:
+def register_user(user_id: str, password: str) -> bool:
     """
     新しいデバイスを登録する
 
     Parameters
     ----------
-    device_id : str
-        登録するデバイスのID
-    user_type : str
-        ユーザータイプ（secrets["app"]["user_type"])
+    user_id : str
+        登録するユーザーのID (secrets["app"]["user_type"]のいずれか)
     password : str
         設定するパスワード
 
@@ -89,34 +74,42 @@ def register_device(device_id: str, user_type: str, password: str) -> bool:
         登録成功の場合True、失敗の場合False
     """
     try:
-        ref = db.reference("devices")
-        devices = ref.get() or {}
+        # secrets.tomlに定義されているユーザーIDかチェック
+        if user_id not in st.secrets["app"]["user_type"]:
+            st.error("無効なユーザーIDです")
+            return False
 
-        # すでに同じユーザータイプが登録されていないか確認
-        for device in devices.values():
-            if device["user_type"] == user_type:
-                False
+        ref = db.reference("users")
+        users = ref.get() or {}
 
-        devices[device_id] = {
-            "user_type": user_type,
-            "password": hash_pasword(password),
-            "registerd_at": datetime.now().isoformat(),
+        # すでに同じユーザーIDが登録されていないか確認
+        if user_id in users:
+            st.error("このユーザーIDはすでに登録されています")
+            return False
+
+        # ソルトを生成
+        salt = uuid.uuid4().hex
+
+        users[user_id] = {
+            "password": hash_password(password, salt),
+            "salt": salt,
+            "registered_at": datetime.now().isoformat(),
         }
-        ref.set(devices)
+        ref.set(users)
         return True
     except Exception as e:
-        st.error(f"デバイス登録エラー: {str(e)}")
+        st.error(f"ユーザー登録エラー: {str(e)}")
         return False
 
 
-def authenticate(device_id: str, password: str) -> bool:
+def authenticate(user_id: str, password: str) -> bool:
     """
     ユーザー認証を行う
 
     Parameters
     ----------
-    device_id : str
-        認証するデバイスID
+    user_id : str
+        認証するユーザーID
     password : str
         認証パスワード
 
@@ -125,9 +118,11 @@ def authenticate(device_id: str, password: str) -> bool:
     bool
         認証成功の場合True、失敗の場合False
     """
-    device_info = verify_device(device_id)
-    if device_info and device_info["password"] == hash_pasword(password):
-        st.session_state["user_type"] = device_info["user_type"]
+    user_info = verify_user(user_id)
+    if user_info and user_info["password"] == hash_password(
+        password, user_info["salt"]
+    ):
+        st.session_state["user_type"] = user_id
         return True
     return False
 
@@ -138,35 +133,46 @@ def login_page():
     """
     st.title("体重管理アプリ - ログイン")
 
-    device_id = get_device_id()
-    st.write(f"デバイスID: {device_id}")
-
-    # 未登録デバイスの場合、登録フォームを表示
-    if not verify_device(device_id):
-        st.subheader("新規デバイス登録")
-        user_type = st.selectbox(
-            "ユーザータイプ", st.secrets["app"]["user_type"]
+    with st.form("login_form"):
+        # ユーザーIDはsecrets.tomlで定義されたのものから選択
+        user_id = st.selectbox(
+            "ユーザーID",
+            st.secrets["app"]["user_type"],
         )
         password = st.text_input("パスワード", type="password")
 
-        if st.button("デバイスを登録"):
-            if register_device(device_id, user_type, password):
-                st.success("デバイスが登録されました")
-                st.rerun()
-            else:
-                st.error("デバイス登録に失敗しました")
+        col1, col2 = st.columns(2)
 
-    # 登録済みデバイスの場合、ログインフォームを表示
-    else:
-        password = st.text_input("パスワード", type="password")
+        with col1:
+            login_button = st.form_submit_button("ログイン")
 
-        if st.button("ログイン"):
-            if authenticate(device_id, password):
-                st.session_state["logged_in"] = True
+        with col2:
+            # 登録済みのユーザーかどうかをチェック
+            is_registered = verify_user(user_id) is not None
+            register_button = st.form_submit_button(
+                "新規登録",
+                disabled=is_registered,  # 登録済みの場合は無効化。booleanとして渡す
+                help="すでに登録済みのユーザーは新規登録できません",
+            )
+
+        if login_button:
+            if authenticate(user_id, password):
                 st.success("ログインに成功しました")
+                st.session_state["logged_in"] = True
                 st.rerun()
             else:
-                st.error("パスワードが正しくありません")
+                st.error("ユーザーIDまたはパスワードが正しくありません")
+
+        if register_button:
+            if register_user(user_id, password):
+                st.success("ユーザーが登録されました")
+                st.session_state["logged_in"] = True
+                st.session_state["user_type"] = user_id
+                st.rerun()
+            else:
+                st.error(
+                    "ユーザー登録に失敗しました。すでに登録されているか、パスワードが無効です"
+                )
 
 
 def init_session_state():
