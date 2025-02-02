@@ -1,5 +1,6 @@
+import json
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 import streamlit as st
 from firebase_admin import db
@@ -159,3 +160,39 @@ class WeightDatabase:
         except Exception as e:
             st.error(f"データ削除エラー: {str(e)}")
             return False
+
+    def export_data(self, export_path: Optional[str] = None) -> str:
+        """
+        ユーザーの体重データをJSONファイルとしてエクスポート
+
+        Parameters
+        ----------
+        export_path : Optional[str], default None
+            エクスポート先のパス, Noneの場合は現在の日時でファイル名を生成
+
+        Returns
+        -------
+        str
+            エクスポートされたファイルのパス
+        """
+        try:
+            # データの取得
+            data = self.ref.get()
+            if data is None:
+                st.error(f"ユーザー {self.user_type} のデータが見つかりません")
+
+            # エクスポートパスの設定
+            if export_path is None:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                export_path = (
+                    f"weight_tracker_{self.user_type}_{timestamp}.json"
+                )
+
+            # JSONとしてエクスポート
+            with open(export_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+
+            return export_path
+
+        except Exception as e:
+            st.error(f"データエクスポートエラー: {str(e)}")
