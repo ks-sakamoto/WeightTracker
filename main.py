@@ -1,6 +1,7 @@
 import hashlib
+import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
 
 import firebase_admin
@@ -140,18 +141,27 @@ def login_page():
         )
         st.session_state["show_timeout_warning"] = False
 
+    # ユーザーIDはsecrets.tomlで定義されたのものから選択
+    user_id = st.selectbox(
+        "ユーザーID",
+        st.secrets["app"]["user_type"],
+    )
+
+    # エラーメッセージの表示
+    if st.session_state["login_error"]:
+        st.error(st.session_state["login_error"])
+
+    # 通常のログインフォーム
     with st.form("login_form"):
-        # ユーザーIDはsecrets.tomlで定義されたのものから選択
-        user_id = st.selectbox(
-            "ユーザーID",
-            st.secrets["app"]["user_type"],
-        )
         password = st.text_input("パスワード", type="password")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            login_button = st.form_submit_button("ログイン")
+            login_button = st.form_submit_button(
+                "ログイン",
+                disabled=is_account_locked(user_id),  # ロック中は無効
+            )
 
         with col2:
             # 登録済みのユーザーかどうかをチェック
@@ -166,15 +176,32 @@ def login_page():
             if authenticate(user_id, password):
                 st.success("ログインに成功しました")
                 st.session_state["logged_in"] = True
+                reset_login_attempts(user_id)  # 成功時はカウントをリセット
+                st.session_state["login_error"] = None
                 st.rerun()
             else:
-                st.error("ユーザーIDまたはパスワードが正しくありません")
+                increment_login_attempts(user_id)  # 失敗時はカウントを増やす
+                attempts = st.session_state["login_attempts"][user_id]
+
+                if attempts["locked_until"]:
+                    # ロックされた場合
+                    remaining_time = get_remaining_lock_time(user_id)
+                    st.session_state["login_error"] = (
+                        f"アカウントがロックされました。{remaining_time}分後に再度お試しください。"
+                    )
+                else:
+                    remaining_time = 3 - attempts["count"]
+                    st.session_state["login_error"] = (
+                        f"パスワードが正しくありません。残り試行回数: {remaining_time}回"
+                    )
+                st.rerun()
 
         if register_button:
             if register_user(user_id, password):
                 st.success("ユーザーが登録されました")
                 st.session_state["logged_in"] = True
                 st.session_state["user_type"] = user_id
+                st.session_state["login_error"] = None
                 st.rerun()
             else:
                 st.error(
@@ -194,6 +221,138 @@ def init_session_state():
         st.session_state["last_activity"] = None
     if "show_timeout_warning" not in st.session_state:
         st.session_state["show_timeout_warning"] = False
+    if "login_attempts" not in st.session_state:
+        st.session_state["login_attempts"] = {}
+    if "login_error" not in st.session_state:
+        st.session_state["login_error"] = None
+
+
+def is_account_locked(user_id: str) -> bool:
+    """
+    アカウントがロック中かどうかを確認する
+
+    Parameters
+    ----------
+    user_id : str
+        ユーザーID
+
+    Returns
+    -------
+    bool
+        ロック中の場合True
+    """
+    attempts = st.session_state["login_attempts"].get(
+        user_id, {"count": 0, "locked_until": None}
+    )
+    if attempts["locked_until"]:
+        if datetime.now() < attempts["locked_until"]:
+            return True
+    return False
+
+
+def get_remaining_lock_time(user_id: str) -> int:
+    """
+    ロック解除までの残り時間 (分) を取得する
+
+    Parameters
+    ----------
+    user_id : str
+        ユーザーID
+
+    Returns
+    -------
+    int
+        残り時間 (分) 。ロックされていない場合は0
+    """
+    attempts = st.session_state["login_attempts"].get(
+        user_id, {"count": 0, "locked_until": None}
+    )
+    if attempts["locked_until"] and datetime.now() < attempts["locked_until"]:
+        return int(
+            (attempts["locked_until"] - datetime.now()).total_seconds() / 60
+        )
+    return 0
+
+
+def check_login_attempts(user_id: str) -> bool:
+    """
+    ログイン試行回数をチェックする
+
+    Parameters
+    ----------
+    user_id : str
+        チェックするユーザーID
+
+    Returns
+    -------
+    bool
+        ログイン可能な場合True、ロックされている場合False
+    """
+    MAX_ATTEMPTS = 3
+
+    attempts = st.session_state["login_attempts"].get(
+        user_id, {"count": 0, "locked_until": None}
+    )
+    current_time = datetime.now()
+
+    # ロック時間のチェック
+    if attempts["locked_until"]:
+        if current_time < attempts["locked_until"]:
+            return False
+        else:
+            # ロック時間が経過したらリセット
+            st.session_state["login_attempts"][user_id] = {
+                "count": 0,
+                "locked_until": None,
+            }
+            st.session_state["login_error"] = None
+            return True
+
+    return attempts["count"] < MAX_ATTEMPTS
+
+
+def increment_login_attempts(user_id: str):
+    """
+    ログイン試行回数をインクリメントし、必要に応じてアカウントをロックする
+
+    Parameters
+    ----------
+    user_id : str
+        ユーザーID
+    """
+    MAX_ATTEMPTS = 3
+    LOCK_TIME_MINUTES = 15
+
+    attempts = st.session_state["login_attempts"].get(
+        user_id, {"count": 0, "locked_until": None}
+    )
+    attempts["count"] += 1
+
+    if attempts["count"] >= MAX_ATTEMPTS:
+        attempts["locked_until"] = datetime.now() + timedelta(
+            minutes=LOCK_TIME_MINUTES
+        )
+        st.error(
+            f"ログイン試行回数が上限を超えました。{LOCK_TIME_MINUTES}分間ロックされます。"
+        )
+        time.sleep(5)
+
+    st.session_state["login_attempts"][user_id] = attempts
+
+
+def reset_login_attempts(user_id: str):
+    """
+    ログイン試行回数をリセットする
+
+    Parameters
+    ----------
+    user_id : str
+        ユーザーID
+    """
+    st.session_state["login_attempts"][user_id] = {
+        "count": 0,
+        "locked_until": None,
+    }
 
 
 def check_session_timeout():
@@ -201,7 +360,7 @@ def check_session_timeout():
     セッションタイムアウトをチェックする
     30分以上操作がない場合、自動的にログアウトする
     """
-    TIMEOUT_MINUTES = 30
+    TIMEOUT_MINUTES = 2
 
     # ログインしていない場合は何もしない
     if not st.session_state["logged_in"]:
@@ -245,7 +404,7 @@ def main():
     # セッションタイムアウトまでの残り時間を表示
     if st.session_state["last_activity"] is not None:
         remaining_time = (
-            30
+            2
             - (
                 datetime.now() - st.session_state["last_activity"]
             ).total_seconds()
