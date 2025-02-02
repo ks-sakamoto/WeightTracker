@@ -1,4 +1,5 @@
 import hashlib
+import os
 import time
 import uuid
 from datetime import datetime, timedelta
@@ -441,6 +442,22 @@ def main():
 
         # 予測表示の切り替え
         show_prediction = st.checkbox("予測表示", value=False)
+
+        # エクスポート機能
+        try:
+            file_path = db.export_data()
+            with open(file_path, "r", encoding="utf-8") as f:
+                data = f.read()
+                st.download_button(
+                    label="データをエクスポート",
+                    data=data,
+                    file_name=os.path.basename(file_path),
+                    mime="application/json",
+                )
+            # 一時ファイルの削除
+            os.remove(file_path)
+        except Exception as e:
+            st.error(f"エクスポートに失敗しました: {str(e)}")
 
     # メイン画面に期間選択と記録表示
     start_date, end_date = DateRangeSelector.render()
