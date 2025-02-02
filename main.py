@@ -133,6 +133,13 @@ def login_page():
     """
     st.title("体重管理アプリ - ログイン")
 
+    # タイムアウト警告の表示
+    if st.session_state["show_timeout_warning"]:
+        st.warning(
+            "セッションがタイムアウトしました。再度ログインしてください。"
+        )
+        st.session_state["show_timeout_warning"] = False
+
     with st.form("login_form"):
         # ユーザーIDはsecrets.tomlで定義されたのものから選択
         user_id = st.selectbox(
@@ -183,6 +190,42 @@ def init_session_state():
         st.session_state["logged_in"] = False
     if "user_type" not in st.session_state:
         st.session_state["user_type"] = None
+    if "last_activity" not in st.session_state:
+        st.session_state["last_activity"] = None
+    if "show_timeout_warning" not in st.session_state:
+        st.session_state["show_timeout_warning"] = False
+
+
+def check_session_timeout():
+    """
+    セッションタイムアウトをチェックする
+    30分以上操作がない場合、自動的にログアウトする
+    """
+    TIMEOUT_MINUTES = 2
+
+    # ログインしていない場合は何もしない
+    if not st.session_state["logged_in"]:
+        return
+
+    current_time = datetime.now()
+
+    # 最終アクティビティ時刻の更新
+    if st.session_state["last_activity"] is None:
+        st.session_state["last_activity"] = current_time
+
+    # タイムアウトチェック
+    if st.session_state["last_activity"] is not None:
+        time_diff = current_time - st.session_state["last_activity"]
+        if time_diff.total_seconds() > TIMEOUT_MINUTES * 60:
+            # セッションタイムアウト時の処理
+            st.session_state["logged_in"] = False
+            st.session_state["user_type"] = None
+            st.session_state["last_activity"] = None
+            st.session_state["show_timeout_warning"] = True
+            st.rerun()
+
+    # アクティビティ時刻の更新
+    st.session_state["last_activity"] = current_time
 
 
 def main():
@@ -190,6 +233,7 @@ def main():
     メインアプリケーション
     """
     init_session_state()
+    check_session_timeout()  # セッションタイムアウトのチェック
 
     if not st.session_state["logged_in"]:
         login_page()
@@ -197,6 +241,20 @@ def main():
 
     st.title("体重管理アプリ")
     st.write(f"ログインユーザー: {st.session_state['user_type']}")
+
+    # セッションタイムアウトまでの残り時間を表示
+    if st.session_state["last_activity"] is not None:
+        remaining_time = (
+            2
+            - (
+                datetime.now() - st.session_state["last_activity"]
+            ).total_seconds()
+            / 60
+        )
+        if remaining_time > 0:
+            st.sidebar.info(
+                f"セッションタイムアウトまで: {int(remaining_time)}分"
+            )
 
     # データベースインスタンスの作成
     db = WeightDatabase(st.session_state["user_type"])
@@ -242,6 +300,7 @@ def main():
     if st.button("ログアウト"):
         st.session_state["logged_in"] = False
         st.session_state["user_type"] = None
+        st.session_state["last_activity"] = None
         st.rerun()
 
 
