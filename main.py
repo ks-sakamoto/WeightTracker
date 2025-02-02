@@ -201,7 +201,7 @@ def check_session_timeout():
     セッションタイムアウトをチェックする
     30分以上操作がない場合、自動的にログアウトする
     """
-    TIMEOUT_MINUTES = 2
+    TIMEOUT_MINUTES = 30
 
     # ログインしていない場合は何もしない
     if not st.session_state["logged_in"]:
@@ -245,7 +245,7 @@ def main():
     # セッションタイムアウトまでの残り時間を表示
     if st.session_state["last_activity"] is not None:
         remaining_time = (
-            2
+            30
             - (
                 datetime.now() - st.session_state["last_activity"]
             ).total_seconds()
