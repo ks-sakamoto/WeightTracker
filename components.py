@@ -72,6 +72,15 @@ class DateRangeSelector:
     期間選択コンポーネント
     """
 
+    QUICK_PERIODS = [
+        ("1週間", 7),
+        ("1か月", 30),
+        ("2か月", 60),
+        ("3か月", 90),
+        ("6か月", 180),
+        ("12か月", 365),
+    ]
+
     @staticmethod
     def render() -> Tuple[datetime, datetime]:
         """
@@ -84,21 +93,45 @@ class DateRangeSelector:
         """
         st.subheader("期間選択")
 
-        # デフォルトで1週間を表示
-        end_date = datetime.now(ZoneInfo("Asia/Tokyo"))
-        start_date = end_date - timedelta(days=7)
+        # 現在の日本時間を取得
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
 
+        # セッションステートのキーを定義
+        if "date_range_start" not in st.session_state:
+            # デフォルトで1週間を表示
+            st.session_state.date_range_start = now - timedelta(days=7)
+            st.session_state.date_range_end = now
+
+        # カスタム入力期間
         col1, col2 = st.columns(2)
 
         with col1:
             start_date = st.date_input(
-                "開始日", value=start_date.date(), max_value=end_date.date()
+                "開始日",
+                value=st.session_state.date_range_start.date(),
+                max_value=now.date(),
             )
 
         with col2:
             end_date = st.date_input(
-                "終了日", value=end_date.date(), min_value=start_date
+                "終了日",
+                value=st.session_state.date_range_end.date(),
+                min_value=start_date,
+                max_value=now.date(),
             )
+
+        # クイック選択ボタン
+        cols = st.columns(len(DateRangeSelector.QUICK_PERIODS))
+
+        # クイック選択ボタンの配置
+        for col, (label, days) in zip(cols, DateRangeSelector.QUICK_PERIODS):
+            with col:
+                if st.button(label):
+                    st.session_state.date_range_start = now - timedelta(
+                        days=days
+                    )
+                    st.session_state.date_range_end = now
+                    st.rerun()
 
         # datetime型に変換し、日本時間のタイムゾーン情報を追加
         start_datetime = datetime.combine(
@@ -107,6 +140,10 @@ class DateRangeSelector:
         end_datetime = datetime.combine(end_date, datetime.max.time()).replace(
             tzinfo=ZoneInfo("Asia/Tokyo")
         )
+
+        # セッションステートを更新
+        st.session_state.date_range_start = start_datetime
+        st.session_state.date_range_end = end_datetime
 
         return start_datetime, end_datetime
 
