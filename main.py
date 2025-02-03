@@ -4,6 +4,7 @@ import time
 import uuid
 from datetime import datetime, timedelta
 from typing import Any, Dict, Optional
+from zoneinfo import ZoneInfo
 
 import firebase_admin
 import streamlit as st
@@ -111,7 +112,7 @@ def register_user(user_id: str, password: str) -> bool:
         users[user_id] = {
             "password": hash_password(password, salt),
             "salt": salt,
-            "registered_at": datetime.now().isoformat(),
+            "registered_at": datetime.now(ZoneInfo("Asia/Tokyo")).isoformat(),
         }
         ref.set(users)
         return True
@@ -346,9 +347,9 @@ def increment_login_attempts(user_id: str):
     attempts["count"] += 1
 
     if attempts["count"] >= MAX_ATTEMPTS:
-        attempts["locked_until"] = datetime.now() + timedelta(
-            minutes=LOCK_TIME_MINUTES
-        )
+        attempts["locked_until"] = datetime.now(
+            ZoneInfo("Asia/Tokyo")
+        ) + timedelta(minutes=LOCK_TIME_MINUTES)
         st.error(
             f"ログイン試行回数が上限を超えました。{LOCK_TIME_MINUTES}分間ロックされます。"
         )
@@ -383,7 +384,7 @@ def check_session_timeout():
     if not st.session_state["logged_in"]:
         return
 
-    current_time = datetime.now()
+    current_time = datetime.now(ZoneInfo("Asia/Tokyo"))
 
     # 最終アクティビティ時刻の更新
     if st.session_state["last_activity"] is None:
@@ -420,10 +421,11 @@ def main():
 
     # セッションタイムアウトまでの残り時間を表示
     if st.session_state["last_activity"] is not None:
+        current_time = datetime.now(ZoneInfo("Asia/Tokyo"))
         remaining_time = (
             30
             - (
-                datetime.now() - st.session_state["last_activity"]
+                current_time - st.session_state["last_activity"]
             ).total_seconds()
             / 60
         )
