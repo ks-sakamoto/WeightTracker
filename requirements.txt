@@ -5,3 +5,4 @@ numpy
 plotly
 python-dotenv
 scikit-learn
+tzdata

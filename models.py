@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
+from zoneinfo import ZoneInfo
 
 
 @dataclass
@@ -59,9 +60,15 @@ class WeightRecord:
         dict[str, Any]
             データベース保存用の辞書
         """
+        # タイムゾーン情報がない場合は日本時間として扱う
+        if self.timestamp.tzinfo is None:
+            timestamp = self.timestamp.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+        else:
+            timestamp = self.timestamp
+
         return {
             "weight": self.weight,
-            "timestamp": self.timestamp.replace(microsecond=0).isoformat(),
+            "timestamp": timestamp.replace(microsecond=0).isoformat(),
             "time_after_meal": self.time_after_meal,
             "edited": self.edited,
         }
@@ -81,9 +88,14 @@ class WeightRecord:
         WeightRecord
             生成されたWeightRecordインスタンス
         """
+        timestamp = datetime.fromisoformat(data["timestamp"])
+        # タイムゾーン情報がない場合は日本時間として扱う
+        if timestamp.tzinfo is None:
+            timestamp = timestamp.replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+
         return cls(
             weight=float(data["weight"]),
-            timestamp=datetime.fromisoformat(data["timestamp"]),
+            timestamp=timestamp,
             time_after_meal=float(data["time_after_meal"]),
             edited=data.get("edited", False),
         )

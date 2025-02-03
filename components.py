@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
+from zoneinfo import ZoneInfo
 
 import streamlit as st
 
@@ -27,8 +28,8 @@ class WeightInputForm:
         with st.form("weight_input_form"):
             st.subheader("体重を記録")
 
-            # 日付入力
-            today = datetime.now().date()
+            # 日付入力 - 日本時間で現在時刻を取得
+            today = datetime.now(ZoneInfo("Asia/Tokyo")).date()
             input_date = st.date_input("日付", value=today)
 
             # 体重入力
@@ -53,10 +54,13 @@ class WeightInputForm:
             submit = st.form_submit_button("記録")
 
             if submit and weight > 0:
+                # タイムスタンプを日本時間で生成
                 timestamp = (
-                    datetime.now()
+                    datetime.now(ZoneInfo("Asia/Tokyo"))
                     if input_date == today
-                    else datetime.combine(input_date, datetime.min.time())
+                    else datetime.combine(
+                        input_date, datetime.min.time()
+                    ).replace(tzinfo=ZoneInfo("Asia/Tokyo"))
                 )
                 if self.db.add_record(weight, time_after_meal, timestamp):
                     st.success("記録を保存しました")
@@ -81,24 +85,28 @@ class DateRangeSelector:
         st.subheader("期間選択")
 
         # デフォルトで1週間を表示
-        end_date = datetime.now()
+        end_date = datetime.now(ZoneInfo("Asia/Tokyo"))
         start_date = end_date - timedelta(days=7)
 
         col1, col2 = st.columns(2)
 
         with col1:
             start_date = st.date_input(
-                "開始日", value=start_date, max_value=end_date
+                "開始日", value=start_date.date(), max_value=end_date.date()
             )
 
         with col2:
             end_date = st.date_input(
-                "終了日", value=end_date, min_value=start_date
+                "終了日", value=end_date.date(), min_value=start_date
             )
 
-        # datetime型に変換
-        start_datetime = datetime.combine(start_date, datetime.min.time())
-        end_datetime = datetime.combine(end_date, datetime.max.time())
+        # datetime型に変換し、日本時間のタイムゾーン情報を追加
+        start_datetime = datetime.combine(
+            start_date, datetime.min.time()
+        ).replace(tzinfo=ZoneInfo("Asia/Tokyo"))
+        end_datetime = datetime.combine(end_date, datetime.max.time()).replace(
+            tzinfo=ZoneInfo("Asia/Tokyo")
+        )
 
         return start_datetime, end_datetime
 
