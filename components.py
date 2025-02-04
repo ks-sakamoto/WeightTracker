@@ -91,7 +91,6 @@ class DateRangeSelector:
         Tuple[datetime, datetime]
             選択された開始日と終了日
         """
-        st.subheader("期間選択")
 
         # 現在の日本時間を取得
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -107,14 +106,14 @@ class DateRangeSelector:
 
         with col1:
             start_date = st.date_input(
-                "開始日",
+                "表示開始日",
                 value=st.session_state.date_range_start.date(),
                 max_value=now.date(),
             )
 
         with col2:
             end_date = st.date_input(
-                "終了日",
+                "表示終了日",
                 value=st.session_state.date_range_end.date(),
                 min_value=start_date,
                 max_value=now.date(),
