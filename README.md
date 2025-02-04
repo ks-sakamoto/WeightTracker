@@ -100,6 +100,7 @@ user_type = ["user1", "user2"]
 - main: プロダクション用
 - feature/*: 新機能開発用
 - fix/*: 機能修正用
+- develop/*: 開発用
 
 ## プロジェクト構成
 ```
