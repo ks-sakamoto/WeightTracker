@@ -119,18 +119,36 @@ class DateRangeSelector:
                 max_value=now.date(),
             )
 
-        # クイック選択ボタン
-        cols = st.columns(len(DateRangeSelector.QUICK_PERIODS))
+        # モバイル向けレイアウト
+        for i in range(0, len(DateRangeSelector.QUICK_PERIODS), 2):
+            cols = st.columns([1, 1])  # 2列レイアウト
 
-        # クイック選択ボタンの配置
-        for col, (label, days) in zip(cols, DateRangeSelector.QUICK_PERIODS):
-            with col:
-                if st.button(label):
+            # 左側のボタン
+            with cols[0]:
+                label, days = DateRangeSelector.QUICK_PERIODS[i]
+                if st.button(
+                    label, key=f"quick_period_{days}", use_container_width=True
+                ):
                     st.session_state.date_range_start = now - timedelta(
                         days=days
                     )
                     st.session_state.date_range_end = now
                     st.rerun()
+
+            # 右側のボタン (存在する場合)
+            with cols[1]:
+                if i + 1 < len(DateRangeSelector.QUICK_PERIODS):
+                    label, days = DateRangeSelector.QUICK_PERIODS[i + 1]
+                    if st.button(
+                        label,
+                        key=f"quick_period_{days}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.date_range_start = now - timedelta(
+                            days=days
+                        )
+                        st.session_state.date_range_end = now
+                        st.rerun()
 
         # datetime型に変換し、日本時間のタイムゾーン情報を追加
         start_datetime = datetime.combine(
