@@ -101,7 +101,7 @@ class DateRangeSelector:
             st.session_state.date_range_start = now - timedelta(days=7)
             st.session_state.date_range_end = now
 
-        # カスタム入力期間
+        # カレンダーによる期間選択
         col1, col2 = st.columns(2)
 
         with col1:
@@ -119,36 +119,38 @@ class DateRangeSelector:
                 max_value=now.date(),
             )
 
-        # モバイル向けレイアウト
-        for i in range(0, len(DateRangeSelector.QUICK_PERIODS), 2):
-            cols = st.columns([1, 1])  # 2列レイアウト
+        # ラベルを非表示にするCSS
+        st.markdown(
+            """
+            <style>
+                div[data-testid="stSelectbox"] > label {
+                    display: none;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
-            # 左側のボタン
-            with cols[0]:
-                label, days = DateRangeSelector.QUICK_PERIODS[i]
-                if st.button(
-                    label, key=f"quick_period_{days}", use_container_width=True
-                ):
+        # クイック選択のドロップダウン
+        period_labels = [label for label, _ in DateRangeSelector.QUICK_PERIODS]
+
+        # "選択してください"をデフォルトとして追加
+        period_labels.insert(0, "ドロップダウンから表示期間の指定も可")
+
+        selected_period = st.selectbox(
+            "", options=period_labels, index=0
+        )  # ラベルはCSSで非表示になる
+
+        # 期間が選択された場合に日付を更新
+        if selected_period != "期間を選択してください":
+            # 選択された期間に一致する日数を見つける
+            for label, days in DateRangeSelector.QUICK_PERIODS:
+                if label == selected_period:
                     st.session_state.date_range_start = now - timedelta(
                         days=days
                     )
                     st.session_state.date_range_end = now
                     st.rerun()
-
-            # 右側のボタン (存在する場合)
-            with cols[1]:
-                if i + 1 < len(DateRangeSelector.QUICK_PERIODS):
-                    label, days = DateRangeSelector.QUICK_PERIODS[i + 1]
-                    if st.button(
-                        label,
-                        key=f"quick_period_{days}",
-                        use_container_width=True,
-                    ):
-                        st.session_state.date_range_start = now - timedelta(
-                            days=days
-                        )
-                        st.session_state.date_range_end = now
-                        st.rerun()
 
         # datetime型に変換し、日本時間のタイムゾーン情報を追加
         start_datetime = datetime.combine(
