@@ -91,7 +91,6 @@ class DateRangeSelector:
         Tuple[datetime, datetime]
             選択された開始日と終了日
         """
-        st.subheader("期間選択")
 
         # 現在の日本時間を取得
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -107,31 +106,49 @@ class DateRangeSelector:
 
         with col1:
             start_date = st.date_input(
-                "開始日",
+                "表示開始日",
                 value=st.session_state.date_range_start.date(),
                 max_value=now.date(),
             )
 
         with col2:
             end_date = st.date_input(
-                "終了日",
+                "表示終了日",
                 value=st.session_state.date_range_end.date(),
                 min_value=start_date,
                 max_value=now.date(),
             )
 
-        # クイック選択ボタン
-        cols = st.columns(len(DateRangeSelector.QUICK_PERIODS))
+        # モバイル向けレイアウト
+        for i in range(0, len(DateRangeSelector.QUICK_PERIODS), 2):
+            cols = st.columns([1, 1])  # 2列レイアウト
 
-        # クイック選択ボタンの配置
-        for col, (label, days) in zip(cols, DateRangeSelector.QUICK_PERIODS):
-            with col:
-                if st.button(label):
+            # 左側のボタン
+            with cols[0]:
+                label, days = DateRangeSelector.QUICK_PERIODS[i]
+                if st.button(
+                    label, key=f"quick_period_{days}", use_container_width=True
+                ):
                     st.session_state.date_range_start = now - timedelta(
                         days=days
                     )
                     st.session_state.date_range_end = now
                     st.rerun()
+
+            # 右側のボタン (存在する場合)
+            with cols[1]:
+                if i + 1 < len(DateRangeSelector.QUICK_PERIODS):
+                    label, days = DateRangeSelector.QUICK_PERIODS[i + 1]
+                    if st.button(
+                        label,
+                        key=f"quick_period_{days}",
+                        use_container_width=True,
+                    ):
+                        st.session_state.date_range_start = now - timedelta(
+                            days=days
+                        )
+                        st.session_state.date_range_end = now
+                        st.rerun()
 
         # datetime型に変換し、日本時間のタイムゾーン情報を追加
         start_datetime = datetime.combine(
